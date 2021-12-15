@@ -6,7 +6,7 @@ import string
 
 def password_generator():
     possible_symbols = string.ascii_letters + string.digits
-    for i in range(1000000):
+    for i in range(1_000_000):
         for message in product(possible_symbols, repeat=i + 1):
             yield message
 
@@ -19,7 +19,7 @@ def connect_to_server(arguments):
     return _client_soket
 
 
-def hack_password(client_socket):  # client_socket
+def brute_force(client_socket):  # client_socket
     generator = password_generator()
     for message in generator:
         password = ''.join(message)
@@ -30,14 +30,35 @@ def hack_password(client_socket):  # client_socket
             break
 
 
+def case_generator(_password) -> str:
+    if not _password.isdigit():
+        all_spelling_options = map(lambda x: ''.join(x), product(*([letter.lower(), letter.upper()] for letter in _password)))
+        for i in all_spelling_options:
+            yield i
+    else:
+        yield _password
+
+
+def try_dictionary_password(_dict_file, _client_socket):
+    password_pull = tuple(sorted(open(_dict_file).read().split("\n")))
+    for password in password_pull:
+        generator = case_generator(password)
+        for pas in generator:
+            _client_socket.send(pas.encode())
+            response = _client_socket.recv(1024).decode()
+            if response == "Connection success!":
+                print(pas)
+                exit()
+
+
 def main():
     args = sys.argv
     if len(args) < 3:
         print("Not enough arguments. Please provide : ip_address, port, message")
         exit()
     client_socket = connect_to_server(args)
-    hack_password(client_socket)
-
+    dictionary_file = "hacking/passwords.txt"
+    try_dictionary_password(dictionary_file, client_socket)
     client_socket.close()  # close connection
 
 
